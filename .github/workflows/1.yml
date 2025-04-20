@@ -1,0 +1,50 @@
+name: Build All Devices
+
+on:
+  workflow_dispatch:
+    inputs:
+      devices:
+        description: 'Device list (comma-separated, empty=all)'
+        required: false
+        default: "10T,11,12,12r,13,Ace2,Ace2Pro,Ace3Pro,Ace3V,Ace5,Ace5Pro,AcePro,PadPro"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        device: ${{ contains(github.event.inputs.devices, 'all') && fromJson('["10T","11","12","12r","13","Ace2","Ace2Pro","Ace3Pro","Ace3V","Ace5","Ace5Pro","AcePro","PadPro"]') || split(github.event.inputs.devices, ',') }}
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: recursive  # 关键！如果内核有子模块
+
+    - name: Setup Toolchain
+      uses: android-actions/setup-ndk@v1
+      with:
+        ndk-version: r25b  # 根据实际需求选择
+
+    - name: Build
+      run: |
+        # 动态生成配置文件
+        case "${ { matrix.device } }" in
+          "Ace3Pro") config="ace3pro_ksu_defconfig" ;;
+          "PadPro") config="padpro_sus_defconfig" ;;
+          *) config="${ { matrix.device } }_defconfig" ;;
+        esac
+        
+        make O=out_${ { matrix.device } } clean
+        make O=out_${ { matrix.device } } $config
+        make -j$(nproc) O=out_${ { matrix.device } } CC=clang CROSS_COMPILE=aarch64-linux-gnu-
+
+    - name: Package
+      run: |
+        # 示例打包命令（需要实际替换）
+        zip -jr ${ { matrix.device } }_kernel.zip out_${ { matrix.device } }/arch/arm64/boot/Image.gz-dtb
+
+    - uses: actions/upload-artifact@v3
+      with:
+        name: ${ { matrix.device } }_kernel
+        path: ${ { matrix.device } }_kernel.zip
