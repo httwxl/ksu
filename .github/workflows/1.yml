@@ -1,0 +1,207 @@
+name: One-Click KernelSU Next Build for Multiple Devices
+
+on:
+  workflow_dispatch:
+    inputs:
+      DEVICE:
+        description: "选择要编译的设备"
+        required: true
+        type: choice
+        options:
+          - 10T
+          - 11
+          - 12
+          - 12r
+          - 13
+          - Ace2
+          - Ace2Pro
+          - Ace3Pro
+          - Ace3V
+          - Ace5
+          - Ace5Pro
+          - AcePro
+          - PadPro
+        default: "Ace2"
+
+jobs:
+  # Build for 10T
+  build_10T:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == '10T' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-10T-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build 10T Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for 10T"
+
+  # Build for 11
+  build_11:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == '11' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-11-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build 11 Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for 11"
+
+  # Build for 12
+  build_12:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == '12' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-12-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build 12 Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for 12"
+
+  # Build for 12r
+  build_12r:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == '12r' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-12r-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build 12r Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for 12r"
+
+  # Build for 13
+  build_13:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == '13' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-13-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build 13 Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for 13"
+
+  # Build for Ace2
+  build_ace2:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == 'Ace2' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-Ace2-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build Ace2 Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for Ace2"
+
+  # Build for Ace2Pro
+  build_ace2pro:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == 'Ace2Pro' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-Ace2Pro-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build Ace2Pro Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for Ace2Pro"
+
+  # Build for Ace3Pro
+  build_ace3pro:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == 'Ace3Pro' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-Ace3Pro-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build Ace3Pro Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for Ace3Pro"
+
+  # Build for Ace3V
+  build_ace3v:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == 'Ace3V' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-Ace3V-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build Ace3V Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for Ace3V"
+
+  # Build for Ace5
+  build_ace5:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == 'Ace5' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-Ace5-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build Ace5 Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for Ace5"
+
+  # Build for Ace5Pro
+  build_ace5pro:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == 'Ace5Pro' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-Ace5Pro-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build Ace5Pro Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for Ace5Pro"
+
+  # Build for AcePro
+  build_acepro:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == 'AcePro' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-AcePro-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build AcePro Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for AcePro"
+
+  # Build for PadPro
+  build_padpro:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.DEVICE == 'PadPro' }}
+
+    steps:
+      # 在此处添加 `Build-ksunext-PadPro-SUSFS.yml` 中的所有步骤
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Build PadPro Kernel
+        run: |
+          # 你的编译命令，替换为实际命令
+          echo "Building Kernel for PadPro"
