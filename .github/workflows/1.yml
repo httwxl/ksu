@@ -1,15 +1,15 @@
-name: Build All Devices
+name: Build All ksunext Kernels
 
 on:
   workflow_dispatch:
     inputs:
       devices:
-        description: 'Device list (comma-separated or "all")'
+        description: '设备列表 (逗号分隔或 "all" 编译全部)'
         required: false
         default: "all"
 
 jobs:
-  build:
+  build-kernels:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -19,24 +19,56 @@ jobs:
           && fromJson('["10T","11","12","12r","13","Ace2","Ace2Pro","Ace3Pro","Ace3V","Ace5","Ace5Pro","AcePro","PadPro"]') 
           || fromJson(format('["{0}"]', replace(inputs.devices, ',', '","'))) 
         }}
-    
+    name: Build ${{ matrix.device }}
     steps:
-    - uses: actions/checkout@v4
+    - name: Checkout code
+      uses: actions/checkout@v4
       with:
-        submodules: recursive
+        submodules: recursive  # 如果内核包含子模块
+
+    - name: Setup build environment
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y build-essential libncurses-dev bison flex libssl-dev libelf-dev
 
     - name: Setup Toolchain
       uses: android-actions/setup-ndk@v1
       with:
-        ndk-version: r25b
+        ndk-version: r25b  # 根据实际情况调整
 
-    - name: Build
+    - name: Build kernel
       run: |
+        # 清理并创建输出目录
         make O=out_${{ matrix.device }} clean
-        make O=out_${{ matrix.device }} ${{ matrix.device }}_defconfig
-        make -j$(nproc) O=out_${{ matrix.device }}
+        
+        # 动态选择配置文件
+        case "${{ matrix.device }}" in
+          "Ace2Pro") config="ace2pro_ksu_defconfig" ;;
+          "Ace3V")   config="ace3v_sus_defconfig" ;;
+          *)         config="${{ matrix.device }}_defconfig" ;;
+        esac
 
-    - uses: actions/upload-artifact@v3
+        # 编译配置
+        make O=out_${{ matrix.device }} $config
+        
+        # 开始编译
+        make -j$(nproc) O=out_${{ matrix.device }} \
+          CC=clang \
+          CROSS_COMPILE=aarch64-linux-gnu-
+
+    - name: Package artifacts
+      run: |
+        # 创建设备专属目录
+        mkdir -p artifacts/${{ matrix.device }}
+        
+        # 复制编译产物
+        cp out_${{ matrix.device }}/arch/arm64/boot/Image.gz-dtb artifacts/${{ matrix.device }}/
+        
+        # 打包成 zip (示例命令)
+        zip -j artifacts/${{ matrix.device }}.zip artifacts/${{ matrix.device }}/*
+
+    - name: Upload artifacts
+      uses: actions/upload-artifact@v3
       with:
-        name: ${{ matrix.device }}-kernel
-        path: out_${{ matrix.device }}/arch/arm64/boot/Image.gz-dtb
+        name: kernel-${{ matrix.device }}-${{ github.run_number }}
+        path: artifacts/${{ matrix.device }}.zip
