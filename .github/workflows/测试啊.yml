@@ -1,25 +1,44 @@
-name: 测试 KernelSU Next SUSFS Ace5 (Config Preserved)
-on: # 事件触发配置与原版完全一致
+name: Build Kernel with syscall_hooks.patch
+
+on:
   workflow_dispatch:
     inputs:
-      CPU: {description: "分支", required: true, default: 'sm8650'}
-      FEIL: {description: "配置文件", required: true, default: 'oneplus_ace5'}
-      CPUD: {description: "处理器代号", required: true, default: 'pineapple'}
-      ANDROID_VERSION: {description: "内核安卓版本", required: true, default: 'android14'}
-      KERNEL_VERSION: {description: "内核版本", required: true, default: '6.1'}
-      BUILD_METHOD: {description: "编译方式", required: true, default: 'gki'}
-      KSUNEXT_ENABLED: {description: "添加 KSU Next", required: true, type: boolean, default: true}
-      SUSFS_ENABLED: {description: "添加 SUSFS", required: true, type: boolean, default: true}
-      SUSFS_CI: {description: "SUSFS调用CI", required: true, type: boolean, default: true}
+      CPU:
+        description: "分支"
+        required: true
+        default: 'sm8650'
+      FEIL:
+        description: "配置文件"
+        required: true
+        default: 'oneplus_ace5'
+      CPUD:
+        description: "处理器代号"
+        required: true
+        default: 'pineapple'
+      ANDROID_VERSION:
+        description: "内核安卓版本"
+        required: true
+        default: 'android14'
+      KERNEL_VERSION:
+        description: "内核版本"
+        required: true
+        default: '6.1'
+      KSUNEXT_ENABLED:
+        description: "是否启用 KernelSU Next"
+        required: true
+        type: boolean
+        default: true
+      SUSFS_ENABLED:
+        description: "是否启用 SUSFS 支持"
+        required: true
+        type: boolean
+        default: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    
+
     steps:
-      # ---------------------------
-      # 空间优化 (保持配置不变)
-      # ---------------------------
       - name: Maximize build space
         uses: easimon/maximize-build-space@master
         with:
@@ -30,129 +49,71 @@ jobs:
           remove-haskell: 'true'
           remove-codeql: 'true'
 
-      # ---------------------------
-      # 基础环境配置 (保持配置不变)
-      # ---------------------------
       - name: Configure Git
         run: |
           git config --global user.name "build"
           git config --global user.email "263623064@qq.com"
 
-      # ---------------------------
-      # ✅ 依赖安装优化（不修改apt列表）
-      # ---------------------------
       - name: Install dependencies
         run: |
-          sudo apt update && sudo apt upgrade -y
-          # 合并安装命令，减少layer
-          sudo apt install -y \
-            python3 git curl patch \
-            bc bison flex libssl-dev \
-            $(if ${{ inputs.SUSFS_ENABLED }}; then echo "jq"; fi)
+          sudo apt update && sudo apt install -y python3 git curl patch bc bison flex libssl-dev
 
-      # ---------------------------
-      # ✅ Repo工具安装优化（增加重试机制）
-      # ---------------------------
       - name: Install repo tool
         run: |
-          for i in {1..3}; do
-            curl -fL https://storage.googleapis.com/git-repo-downloads/repo > ~/repo && break
-            sleep $((i*5))
-          done
+          curl https://storage.googleapis.com/git-repo-downloads/repo > ~/repo
           chmod a+x ~/repo
           sudo mv ~/repo /usr/local/bin/repo
 
-      # ---------------------------
-      # ✅ 代码同步优化（并行下载）
-      # ---------------------------
       - name: Initialize repo and sync
         run: |
           mkdir kernel_workspace && cd kernel_workspace
-          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git \
-            -b refs/heads/oneplus/${{ inputs.CPU }} \
-            -m ${{ inputs.FEIL }}.xml \
-            --depth=1
-          repo sync -j$(nproc) --fail-fast
+          repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
+          repo sync
 
-      # ---------------------------
-      # ✅ 补丁应用优化（保持原有补丁）
-      # ---------------------------
-      - name: Apply critical patches
+      - name: Remove -dirty suffix
+        run: |
+          cd kernel_workspace/kernel_platform
+          sed -i 's/ -dirty//g' common/scripts/setlocalversion
+          sed -i 's/ -dirty//g' msm-kernel/scripts/setlocalversion
+
+      - name: Add syscall_hooks.patch
+        run: |
+          cd kernel_workspace/kernel_platform
+          curl -L https://github.com/WildPlusKernel/kernel_patches/raw/main/next%2Fsyscall_hooks.patch -o syscall_hooks.patch
+          patch -p1 < syscall_hooks.patch || true
+
+      - name: Set up KernelSU Next
+        if: ${{ github.event.inputs.KSUNEXT_ENABLED == 'true' }}
+        run: |
+          cd kernel_workspace/kernel_platform
+          curl -LSs "https://raw.githubusercontent.com/rifsxd/KernelSU-Next/next/kernel/setup.sh" | bash -s next
+          cd KernelSU-Next
+          KSU_VERSION=$(expr $(/usr/bin/git rev-list --count HEAD) "+" 10200)
+          echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
+          sed -i "s/DKSU_VERSION=11998/DKSU_VERSION=${KSU_VERSION}/" kernel/Makefile
+
+      - name: Add SUSFS Support
+        if: ${{ github.event.inputs.SUSFS_ENABLED == 'true' }}
         run: |
           cd kernel_workspace
-          # 保持原有补丁逻辑，仅优化执行方式
-          find . -name 'abi_gki_protected_exports_*' -delete
-          sed -i 's/ -dirty//g' kernel_platform/*/scripts/setlocalversion
-          
-          # ✅ 批量应用补丁（不修改补丁内容）
-          for patch in patches/*.patch; do
-            echo "Applying ${patch##*/}..."
-            if ! patch -p1 --no-backup-if-mismatch < "$patch"; then
-              echo "::error::Failed to apply ${patch##*/}"
-              exit 1
-            fi
-          done
+          git clone https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}
+          cd kernel_platform
+          cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch ./common/
+          patch -p1 < ./common/50_add_susfs_in_gki-${{ github.event.inputs.ANDROID_VERSION }}-${{ github.event.inputs.KERNEL_VERSION }}.patch || true
 
-      # ---------------------------
-      # ✅ SUSFS集成优化（保持原有配置）
-      # ---------------------------
-      - name: Set up SUSFS
-        if: inputs.SUSFS_ENABLED
-        run: |
-          cd kernel_workspace
-          # 保持原有克隆逻辑，增加缓存校验
-          if [ ! -d "susfs4ksu" ]; then
-            git clone --filter=blob:none \
-              https://gitlab.com/simonpunk/susfs4ksu.git \
-              -b gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}
-          fi
-          
-          # ✅ 并行复制操作
-          (cd kernel_platform && cp -v ../susfs4ksu/kernel_patches/* .) &
-
-          # 保持原有补丁应用逻辑
-          patch -p1 < 69_hide_stuff.patch || true
-          patch -p1 < syscall_hooks.patch
-          wait
-
-      # ---------------------------
-      # ✅ 构建优化（保持编译配置）
-      # ---------------------------
       - name: Build kernel
         run: |
           cd kernel_workspace
-          # 保留原有LTO配置
-          export LTO=thin
-          # 并行编译（不修改build脚本）
-          ./kernel_platform/oplus/build/oplus_build_kernel.sh \
-            ${{ inputs.CPUD }} \
-            ${{ inputs.BUILD_METHOD }} \
-            -j$(nproc)
+          ./kernel_platform/oplus/build/oplus_build_kernel.sh ${{ github.event.inputs.CPUD }} gki
 
-      # ---------------------------
-      # ✅ 产物打包优化（不修改AnyKernel3配置）
-      # ---------------------------
-      - name: Package artifacts
+      - name: Package Kernel with AnyKernel3
         run: |
-          git clone --depth=1 https://github.com/Numbersf/AnyKernel3
-          rm -rf AnyKernel3/.git
-          cp kernel_workspace/kernel_platform/out/**/Image AnyKernel3/
+          git clone https://github.com/Numbersf/AnyKernel3 --depth=1
+          rm -rf ./AnyKernel3/.git
+          cp kernel_workspace/kernel_platform/out/msm-kernel-${{ github.event.inputs.CPUD }}-gki/dist/Image ./AnyKernel3/
 
-          # ✅ 动态模块下载（保持原有逻辑）
-          if ${{ inputs.SUSFS_ENABLED }}; then
-            cd AnyKernel3
-            if ${{ inputs.SUSFS_CI }}; then
-              ./download_from_ci.sh
-            else
-              ./download_from_release.sh
-            fi
-          fi
-
-      # ---------------------------
-      # 上传步骤（保持原有配置）
-      # ---------------------------
-      - name: Upload Artifacts
+      - name: Upload Kernel
         uses: actions/upload-artifact@v4
         with:
-          name: Kernel_${{ inputs.FEIL }}_${{ env.KSUVER }}
+          name: Kernel_with_syscall_hooks
           path: ./AnyKernel3/*
